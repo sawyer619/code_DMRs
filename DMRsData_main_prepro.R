@@ -31,7 +31,7 @@ otherBatch <- setdiff(namesOfBatch, standardBatch)
 
 fileWriteInfo <- paste(fileData, sep = "/","DNA_Methylation/JHU_USC__HumanMethylation450/Level_1")
 dealStandardBatchData <- DealSomeBatchData(NULL, standardBatch, filelLungTestSet,fileWriteInfo, fileData)
-save(dealStandardBatchData, file=paste0(fileData,"afterComBatData/dealStandardBatchData.Rdata"))
+save(dealStandardBatchData, file=paste0(fileData,"/afterComBatData/dealStandardBatchData.Rdata"))
 dealAllBatchData <- lapply(otherBatch, DealSomeBatchData,standardBatch,filelLungTestSet, fileWriteInfo, fileData)
 save(dealAllBatchData, file=paste0(fileData,"/afterComBatData/dealAllBatchData.Rdata"))
 
@@ -44,9 +44,9 @@ com.site <- Reduce(intersect, com.siteOfAllData)
 # 将标准批次写入csv文件中
 #infoStandData <- ComSiteExample_stand(dealStandardBatchData, com.site)
 infoStandData <- ComSiteExample_v1(dealStandardBatchData, standardExample, com.site)
-save(infoStandData, file=paste0(fileData,"finalDataOfBatch/infoStandData.Rdata"))
+save(infoStandData, file=paste0(fileData,"/finalDataOfBatch/infoStandData.Rdata"))
 infoFinaData <- lapply(dealAllBatchData, ComSiteExample_v1, standardExample, com.site)
-save(infoFinaData, file=paste0(fileData,"finalDataOfBatch/infoFinaData.Rdata"))
+save(infoFinaData, file=paste0(fileData,"/finalDataOfBatch/infoFinaData.Rdata"))
 
 # 合并数据，行为位点，列为样本
 # load("finalDataOfBatch/infoStandData.Rdata")

@@ -537,10 +537,11 @@ UnionAndConvertDataToModel <- function(base, fileData, pattern = "csv$", ignore.
   target <- lapply(exampleTN,SureEachExamTarget)
   target <- unlist(target)
   newData.t <- data.frame(newData.t,target)
-  newData <- t(newData.t)
+  trainData <- t(newData.t)
   rm(newData.t)
   
-  write.csv(newData,file = paste(fileData, 'trainData.csv', sep = "/"),row.names = T)
+  save(trainData, file = paste(fileData, "trainData.Rdata", sep="/"))
+  write.csv(trainData,file = paste(fileData, 'trainData.csv', sep = "/"),row.names = T)
   fileTrain <- paste(fileData, 'trainData.csv', sep = "/")
   return(fileTrain)
 }

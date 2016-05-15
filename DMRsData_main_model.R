@@ -15,13 +15,20 @@ source('R_svm.R')
 source('DMRsData_model.R', encoding = 'UTF-8')
 
 # 步骤三：建立模型寻找最具有诊断功能的差异甲基化位点
-fileTrainData <- paste(fileData,'trainData.csv', sep = "/")
-#fileTrainData <- paste(fileData,'trainData_test.csv', sep = "/")
-preData.t <- read.csv(fileTrainData, stringsAsFactors =F)
-rownames(preData.t) <- preData.t[ ,1]
-preData.t <- preData.t[,-1 ]
-preData.dropSmallVar <- RemoveSmallVar(preData.t, pct=1.0/3)  # 滤除1/3方差较小位点
-rm(preData.t)
+# csv方式读入数据
+# fileTrainData <- paste(fileData,'trainData.csv', sep = "/")
+# #fileTrainData <- paste(fileData,'trainData_test.csv', sep = "/")
+# preData.t <- read.csv(fileTrainData, stringsAsFactors =F)
+# rownames(preData.t) <- preData.t[ ,1]
+# TrainData <- preData.t[,-1 ]
+# rm(preData.t)
+
+# Rdata方式读入数据
+fileTrainData <- paste(fileData,'trainData.Rdata', sep = "/")
+load(fileTrainData)
+
+preData.dropSmallVar <- RemoveSmallVar(TrainData, pct=1.0/3)  # 滤除1/3方差较小位点
+rm(TrainData)
 preData <- t(preData.dropSmallVar)
 preData <- as.data.frame(preData)
 rm(preData.dropSmallVar)
