@@ -19,7 +19,9 @@ source('DMRsData_preprocess.R')
 # 步骤一：从信息文件中获取每个甲基化样本信息，写入KIRC_all_lung_test_set.csv
 fileInfo <- FindFileInfo(fileData)
 fileSummyLung <- 'summary_lung.csv'  #标准数据形式
-filelLungTestSet <- SureEachIdatLabel(fileInfo, fileSummyLung, fileData)
+fileDMRs <- paste(fileData, sep = "/","DNA_Methylation/JHU_USC__HumanMethylation450/Level_1")
+filelLungTestSet <- SureEachIdatLabel(fileInfo, fileSummyLung, fileData, fileDMRs)
+
 
 
 # 步骤二：提取多个批次进行数据预处

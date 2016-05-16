@@ -49,13 +49,46 @@ FindFileInfo <- function(fileData){
 }
 
 
-SureEachIdatLabel <- function(fileInfo, fileSummyLung, fileData){
+FindNotExistData <- function(dataInfo,fileDMRs){
+  # 函数说明：找出不在DNA_Methylation中的数据
+  # 
+  # Agrs：
+  # dataInfo: 从信息txt中提取的idat数据
+  # fileDMRs: DNA_Methylation中数据所在文件夹
+  #
+  # Resturn：
+  # 去除不存在数据后的idat数据
+  
+  PasteFiles <- function(x){
+    info <- paste(x[2], x[3], "Grn.idat", sep="_")
+    return(c(x[1], info))
+  }
+  
+  filesGrn <- list.files(fileDMRs, recursive = T, pattern = "Grn.idat", 
+                         ignore.case = T, full.names = F)
+  
+  
+  dataInfo.new <- dataInfo[c('Sample_Name','Sentrix_ID','Sentrix_Position')]
+  filesInfo <- apply(dataInfo.new,1, PasteFiles)
+  notExistFiles <- setdiff(filesInfo[2,], filesGrn)
+  cat("data not exist in DNA_Methylation:", notExistFiles)
+  existFiles <- filesInfo[2,] %in% notExistFiles
+  existExample <- filesInfo[,!existFiles][1,]
+  existExampleData <- dataInfo[,'Sample_Name'] %in% existExample
+  existDataInfo <- dataInfo[existExampleData,]
+  
+  return(existDataInfo)
+}
+
+SureEachIdatLabel <- function(fileInfo, fileSummyLung, fileData, fileDMRs){
   # 函数说明：确定每一个Idat原始数据所属类别（癌症或正常）
   #           所属批次等信息，并将其写入KIRC_all_lung_test_set.csv
   #
   # Args：
   # fileInfo <-  'METADATA/jhu-usc.edu_KIRC.HumanMethylation450.1.11.0.sdrf.txt'
   # fileSummyLung <- 'summary_lung.csv'  标准数据形式
+  # fileData：数据所在文件夹
+  # fileDMRs：DNA_Methylation中数据所在文件夹
   #
   # Returns:
   #返回地址信息：'KIRC_all_lung_test_set.csv'
@@ -122,14 +155,15 @@ SureEachIdatLabel <- function(fileInfo, fileSummyLung, fileData){
   colnames(nessaryInfo) <- c('Sample_Name','Sample_Plate','Sample_Group','Pool_ID','Project',
                              'Sample_Well','Sentrix_ID','Sentrix_Position')
   
-  
-  lung_test_set <- rbind(nessaryInfo, TN_DataInfo)
+  TN_DataInfo.exist <- FindNotExistData(TN_DataInfo,fileDMRs)
+  lung_test_set <- rbind(nessaryInfo, TN_DataInfo.exist)
   write.table(lung_test_set,file=paste(fileData, 'KIRC_all_lung_test_set.csv',sep = "/"),na = "",
               row.names = FALSE, col.names = FALSE, quote = F,  sep = ",")
   
   return(paste(fileData, 'KIRC_all_lung_test_set.csv',sep = "/"))
   
 }
+
 
 HowManyBatchOfData <- function(fileBatch, dropSmallBatch){
   # 函数说明：找到数据中有哪些批次，并返回批次名
