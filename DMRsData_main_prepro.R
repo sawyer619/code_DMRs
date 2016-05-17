@@ -42,12 +42,13 @@ save(dealAllBatchData, file=paste0(fileData,"/afterComBatData/dealAllBatchData.R
 # load("afterComBatData/dealAllBatchData.Rdata")
 standardExample <- dealStandardBatchData$col.name  # 标准批次样本名
 com.siteOfAllData <- lapply(dealAllBatchData, function(x){return(x$row.name)})
+com.siteOfAllData <- unlist(com.siteOfAllData)
 com.site <- Reduce(intersect, com.siteOfAllData) 
 # 将标准批次写入csv文件中
 #infoStandData <- ComSiteExample_stand(dealStandardBatchData, com.site)
-infoStandData <- ComSiteExample_v1(dealStandardBatchData, standardExample, com.site)
+infoStandData <- ComSiteExample_v1(dealStandardBatchData, standardExample, com.site, fileData)
 save(infoStandData, file=paste0(fileData,"/finalDataOfBatch/infoStandData.Rdata"))
-infoFinaData <- lapply(dealAllBatchData, ComSiteExample_v1, standardExample, com.site)
+infoFinaData <- lapply(dealAllBatchData, ComSiteExample_v1, standardExample, com.site, fileData)
 save(infoFinaData, file=paste0(fileData,"/finalDataOfBatch/infoFinaData.Rdata"))
 
 # 合并数据，行为位点，列为样本
