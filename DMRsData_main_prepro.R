@@ -42,7 +42,6 @@ save(dealAllBatchData, file=paste0(fileData,"/afterComBatData/dealAllBatchData.R
 # load("afterComBatData/dealAllBatchData.Rdata")
 standardExample <- dealStandardBatchData$col.name  # 标准批次样本名
 com.siteOfAllData <- lapply(dealAllBatchData, function(x){return(x$row.name)})
-com.siteOfAllData <- unlist(com.siteOfAllData)
 com.site <- Reduce(intersect, com.siteOfAllData) 
 # 将标准批次写入csv文件中
 #infoStandData <- ComSiteExample_stand(dealStandardBatchData, com.site)
@@ -56,7 +55,8 @@ save(infoFinaData, file=paste0(fileData,"/finalDataOfBatch/infoFinaData.Rdata"))
 # load("finalDataOfBatch/infoFinaData.Rdata")
 
 #base <- "finalDataOfBatch"
-base <- strsplit(infoStandData[[1]], split="/")[[1]][1]
+fileSplit <- strsplit(infoStandData[[1]], split="/")[[1]]
+base <- fileSplit[length(fileSplit)-1]
 fileBase <- paste(fileData, base, sep = "/")
 # filePreproData <- UnionData(fileBase, fileData, pattern = "csv$", ignore.case = TRUE, recursive = TRUE, verbose = TRUE)
 # 

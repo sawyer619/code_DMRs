@@ -88,18 +88,21 @@ ModelSVM <- function(dd, CV.int=10, CVnum=20){
 }
 
 
-OneSVMmodel <- function(x, data, CV.int=10, CVnum=20){
-  # 函数说明：对一个数据集划分训练集与测试集，训练并预测
-  #
+##--确定特征数权重--##
+
+SplitDataL1 <- function(x, data, CV.int=10, CVnum=20){
+  # 函数说明：L1层划分后，进一步进行第2次划分，并确定进行几次L2层交叉验证
+  # 
   # Args：
-  # x：data数据集对应某些列号，x为交叉验证所得
-  # data：数据集
+  # x：L1层10折所得列号
+  # data：训练数据
   # CV.int：选择几折交叉验证，默认为10折
   # CVnum：number of CVs
-  #
+  # 
   # Returns：
-  # list(accuracyRate=accuracyRate,fSummaryRSVM=fSummaryRSVM)
-  # accuracyRate：测试集准确率，fSummaryRSVM：最具诊断效果位点位置
+  # list(accuracyRate=accuracyRate,SelInd=SelInd)
+  # accuracyRate：L1层测试集正确率，SelInd：最具诊断效果甲基位点位置
+  time1 <- Sys.time()
   
   data_trainL2 <- data[-x,]
   data_testL2 <- data[x,]
@@ -114,118 +117,128 @@ OneSVMmodel <- function(x, data, CV.int=10, CVnum=20){
   svmres <- svm(trainData$x[, SelInd], trainData$y, scale=F, type="C-classification",
                 kernel="linear" )
   svmpred <- predict(svmres, testData$x[, SelInd] )
+  svmpred <- as.numeric(as.vector(svmpred))
+  #str(svmpred)
   #message('svmpred:',svmpred)
   y_test <- as.numeric(as.vector(testData$y))
+  #str(y_test)
   #message('testData.y:',y_test)
-  accuracyRate <- sum(svmpred == y_test )/dim(testData$x)[1]
-  return(list(accuracyRate=accuracyRate, fSummaryRSVM=fSummaryRSVM))
+  
+  # 评价指标
+  evaluateSystem <- EvaluateSystem(y_test, svmpred)
+  accuracyRate <- sum(svmpred == y_test )/dim(testData$x)[1]  # 正确率
+  
+  
+  time2 <- Sys.time()
+  cat("交叉验证中一次建模时间：",time2-time1, "\n")
+  
+  return(list(accuracyRate=accuracyRate, fSummaryRSVM=fSummaryRSVM, evaluate=evaluateSystem))
+  
 }
 
-
-OneSVML2 <- function(x, data_train, CV.L2=10, CV.int=10, CVnum=20){
-  # 函数说明：nest cross vacation第2层交叉验证
-  # 
+OneTimeModelSVM <- function(x, data, CV.int, CVnum){
+  # 函数说明：一次R_svm训练，寻找差异甲基化位点
+  #
   # Args：
-  # x：第几次重复L2交叉验证
-  # data_train：经过L1层划分后的训练集
-  # CV.L2；划分L2层数据为多少折
-  # CV.int：选择几折交叉验证，默认为10折
-  # CVnum：number of CVs
-  # 
-  # Returns：
-  # 多个这种类型list(accuracyRate=accuracyRate, fSummaryRSVM=fSummaryRSVM)
+  # x：第几次重复
+  # data：训练数据
+  #
+  # return：
+  # list(siteName=siteName, SummaryRSVM=fSummaryRSVM)
+  time3 <- Sys.time()
   
-  message('L2第几次重复交叉验证：', x)
-  folds_L2 <- createFolds(data_train$target, k=CV.L2) #
-  
-  start.L2 <- Sys.time()
-  cv_results_L2 <- lapply(folds_L2,OneSVMmodel,data_train, CV.int, CVnum)
-  end.L2 <- Sys.time()
-  cat("交叉验证建模时间：",end.L2 - start.L2)
-  
-  acRate <- lapply(cv_results_L2,function(x){ return(x$accuracyRate) })
-  acRate <- unlist(acRate)
-  ERInd <-  which(acRate == max(acRate))
-  newERInd <- lapply(ERInd, function(x){return(length(cv_results_L2[[x]]$fSummaryRSVM$SelInd))})
-  newERInd <- unlist(newERInd)
-  #message('newERInd:',newERInd)
-  maxERInd <-  max(which(newERInd == max(newERInd)))
-  #message('maxERInd:',maxERInd)
-  return(cv_results_L2[[maxERInd]])
-}
-
-OneSVML2_V2 <- function(x, data_train, CV.L2=10, CV.int=10, CVnum=20){
-  # 函数说明：nest cross vacation第2层交叉验证
-  # 
-  # Args：
-  # x：第几次重复L2交叉验证
-  # data_train：经过L1层划分后的训练集
-  # CV.L2；划分L2层数据为多少折
-  # CV.int：选择几折交叉验证，默认为10折
-  # CVnum：number of CVs
-  # 
-  # Returns：
-  # 多个这种类型list(accuracyRate=accuracyRate, fSummaryRSVM=fSummaryRSVM)
-  
-  message('L2第几次重复交叉验证：', x)
-  folds_L2 <- createFolds(data_train$target, k=CV.L2) #
-  test.x <- folds_L2[[1]]
-  
-  start.L2 <- Sys.time()
-  cv_results_L2 <- OneSVMmodel(test.x, data_train, CV.int, CVnum)
-  end.L2 <- Sys.time()
-  cat("一次建模时间：",end.L2 - start.L2)
-  
-  return(cv_results_L2)
-}
-##--确定特征数权重--##
-
-SplitDataL1 <- function(x, preData.new, selWeight.DMRsite=200, times.crossL2=20, CV.L2=10, 
-                        CV.int=10, CVnum=20){
-  # 函数说明：L1层划分后，进一步进行第2次划分，并确定进行几次L2层交叉验证
-  # 
-  # Args：
-  # x：L1层10折所得列号
-  # selWeight.DMRsite：提取前面多少重要位点
-  # times.crossL2：L2层进行重复多少次10折交叉验证
-  # CV.L2；划分L2层数据为多少折
-  # CV.int：选择几折交叉验证，默认为10折
-  # CVnum：number of CVs
-  # 
-  # Returns：
-  # list(accuracyRate=accuracyRate,SelInd=SelInd)
-  # accuracyRate：L1层测试集正确率，SelInd：最具诊断效果甲基位点位置
-  
-  
-  data_train <- preData.new[-x,]
-  data_test <- preData.new[x,]
-  timesCross <- 1:times.crossL2  # 进行多少次L2层训练（参数选择地点）
-  cvResultsL2_20 <- lapply(timesCross, OneSVML2_V2, data_train, CV.L2, CV.int, CVnum)  # 
-  str(cvResultsL2_20)
-  siteWeight <- lapply(cvResultsL2_20,function(x){return(x$fSummaryRSVM$SelInd)})
-  siteWeight <- unlist(siteWeight)
-  tableSiteWeight <- table(siteWeight)
-  tableSiteWeight <- sort(tableSiteWeight, decreasing = T)  #权重从大到小排序
-  #save(tableSiteWeight,file='tableSiteWeight.Rdata')
-  siteEaxmple <- as.numeric(names(tableSiteWeight))
-  message('length of siteEaxmple:',length(siteEaxmple))
-  if (length(siteEaxmple) < selWeight.DMRsite)
-    SelInd <- siteEaxmple
-  else
-    SelInd <- siteEaxmple[1:selWeight.DMRsite]  #挑选多少个重要位点特征（参数选择地点）
-  
-  trainData <- ConvertSVMdata(data_train)
-  testData <- ConvertSVMdata(data_test)
-  svmres <- svm( trainData$x[, SelInd],  trainData$y, scale=F, type="C-classification", kernel="linear" )
-  svmpred <- predict(svmres, testData$x[, SelInd] )
-  #message('svmpred:',svmpred)
-  y_test <- as.numeric(as.vector(testData$y))
-  #message('testData.y:',y_test)
-  accuracyRate <- sum(svmpred == y_test )/dim(testData$x)[1]
+  cat("第几次寻找差异甲基化位点：", x,"\n")
+  trainData <- ConvertSVMdata(data)
+  fSummaryRSVM <- ModelSVM(trainData, CV.int, CVnum)
+  SelInd <- fSummaryRSVM$SelInd
   siteName <- colnames(trainData$x)
-  return(list(accuracyRate=accuracyRate,SelInd=SelInd,siteName=siteName[SelInd]))
+  siteName <- siteName[SelInd]
+  
+  time4 <- Sys.time()
+  cat("一次建模时间：",time4-time3, "\n")
+  
+  return(list(siteName=siteName, SummaryRSVM=fSummaryRSVM))
+  
 }
 
+EvaluateSystem <- function(y_test, svmpred){
+  # 函数说明：构建多种评价指标，SP,SE,ACC,MCC
+  # 
+  # Args：
+  # svmpred：预测值
+  # y_test：真实值
+  #
+  # return：
+  # 评价指标
+  
+  if (length(svmpred) != length(y_test)) 
+    stop("svmpred and y_test must have the same length")
+  
+  
+  commonSY <- data.frame(y_test, svmpred)
+  normExam <- commonSY[which(commonSY[,1]== -1), ]
+  if(dim(normExam)[1]==0){
+    TN <- 0
+    FP <- 0
+  }
+  else{
+    tableNorm <- table(normExam[,2])  # 小到大排列，-1为正常，1为癌症
+    nameNorm <- names(tableNorm)
+    if(length(nameNorm)>1){
+      TN <- tableNorm["-1"]
+      FP <- tableNorm["1"]
+    }
+    if(length(nameNorm) == 1){
+      if(nameNorm[1]=="-1"){
+        TN <- tableNorm[1]
+        FP <- 0
+      }
+      if(nameNorm[1]=="1"){
+        TN <- 0
+        FP <- tableNorm[1]
+      }
+      
+    }
+  }
+  
+  
+  cancerExam <- commonSY[which(commonSY[,1]==1), ]
+  if(dim(cancerExam)[1]==0){
+    TP <- 0
+    FN <- 0
+  }
+  else{
+    tableCancer <-table(cancerExam[,2])  # 大到小排列，-1为正常，1为癌症
+    nameCancer <- names(tableCancer)
+    if(length(nameCancer)>1){
+      TP <- tableCancer["1"]
+      FN <- tableCancer["-1"]
+    }
+    if(length(nameCancer) == 1){
+      if(nameCancer[1]=="1")
+      {
+        TP <- tableCancer[1]
+        FN <- 0
+      }
+      if(nameCancer[1]=="-1")
+      {
+        TP <- 0
+        FN <- tableCancer[1]
+      }
+      
+    }
+  }
+  
+  
+  
+  SP <- as.numeric(TN/(TN + FP))  # 特异度 正确判断非病人的率
+  SE <- as.numeric(TP/(TP + FN))  # 灵敏度 正确判断病人的率
+  ACC <- as.numeric((TP + TN)/(TP + FN + TN + FP))  # 正确率
+  MCC <- as.numeric((TP*TN - FP*FN)/sqrt((TP + FN)*(TP + FP)*(TN + FP)*(TN + FN)))
+  tabley <- table(y_test)
+  
+  return(list(SP=SP, SE=SE, ACC=ACC, MCC=MCC, taby_test=tabley))
+}
 
 createFolds <- function (y, k = 10, list = TRUE, returnTrain = FALSE) 
 {

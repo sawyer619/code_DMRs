@@ -71,7 +71,7 @@ FindNotExistData <- function(dataInfo,fileDMRs){
   dataInfo.new <- dataInfo[c('Sample_Name','Sentrix_ID','Sentrix_Position')]
   filesInfo <- apply(dataInfo.new,1, PasteFiles)
   notExistFiles <- setdiff(filesInfo[2,], filesGrn)
-  cat("data not exist in DNA_Methylation:", notExistFiles)
+  cat("data not exist in DNA_Methylation:", notExistFiles, "\n")
   existFiles <- filesInfo[2,] %in% notExistFiles
   existExample <- filesInfo[,!existFiles][1,]
   existExampleData <- dataInfo[,'Sample_Name'] %in% existExample
@@ -182,7 +182,7 @@ HowManyBatchOfData <- function(fileBatch, dropSmallBatch){
   namesOfBatch <- names(sortTable)[which(sortTable > dropSmallBatch)]
   dropName <- setdiff(names(sortTable), namesOfBatch)
   cat("drop name of Batch\n")
-  cat(dropName)
+  cat(dropName, "\n")
   namesOfBatch <- as.numeric(namesOfBatch)
   return(namesOfBatch)
 }
