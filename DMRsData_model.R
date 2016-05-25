@@ -229,8 +229,6 @@ EvaluateSystem <- function(y_test, svmpred){
     }
   }
   
-  
-  
   SP <- as.numeric(TN/(TN + FP))  # 特异度 正确判断非病人的率
   SE <- as.numeric(TP/(TP + FN))  # 灵敏度 正确判断病人的率
   ACC <- as.numeric((TP + TN)/(TP + FN + TN + FP))  # 正确率
