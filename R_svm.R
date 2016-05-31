@@ -112,7 +112,15 @@ RSVM <- function(x, y, ladder, CVtype, CVnum=0 )
     ## vector for test error and number of tests
     ErrVec <- vector( length=length(ladder))
     names(ErrVec) <- paste("Lev_", ladder, sep="")
+    ErrVec.train <- vector( length=length(ladder))
+    names(ErrVec.train) <- paste("Lev_", ladder, sep="")
+    Error.list <- list(NULL)
+    length(Error.list) <- CVnum
+    Error_train.list <- list(NULL)
+    length(Error_train.list) <- CVnum
+    
     nTests <- 0
+    nTrains <- 0
 
     SelFreq <- matrix( 0, nrow=nGene, ncol=length(ladder))
     colnames(SelFreq) <- paste("Lev_", ladder, sep="")
@@ -141,6 +149,7 @@ RSVM <- function(x, y, ladder, CVtype, CVnum=0 )
         }
 
         nTests <- nTests + length(TestInd)
+        nTrains <- nTrains + length(TrainInd)
         
         ## in each level, train a SVM model and record test error
         xTrain <- x[TrainInd, ]
@@ -161,11 +170,14 @@ RSVM <- function(x, y, ladder, CVtype, CVnum=0 )
              if( CVtype == "LOO" )
              {
                  svmpred <- predict(svmres, matrix(xTest[SelInd], nrow=1) )
+                 svmpred.train <- predict(svmres, xTrain[, SelInd] )
              } else
              {
                  svmpred <- predict(svmres, xTest[, SelInd] )
+                 svmpred.train <- predict(svmres, xTrain[, SelInd] )
              }
              ErrVec[gLevel] <- ErrVec[gLevel] + sum(svmpred != yTest )
+             ErrVec.train[gLevel] <- ErrVec.train[gLevel] + sum(svmpred.train != yTrain )
              
             ## weight vector
              W <- t(svmres$coefs*yTrain[svmres$index]) %*% svmres$SV * md[SelInd]
@@ -176,37 +188,41 @@ RSVM <- function(x, y, ladder, CVtype, CVnum=0 )
                 SelInd <- SelInd[which(rkW > (ladder[gLevel] - ladder[gLevel+1]))]
              }
         }
+        #cat(ErrVec, "\n")
+        #cat("ErrVec/nTests:", ErrVec/nTests,"\n")
+        Error.list[[i]] <- ErrVec/nTests
+        Error_train.list[[i]] <- ErrVec.train/nTrains
 
     }
-
-    ret <- list(ladder=ladder, Error=ErrVec/nTests, SelFreq=SelFreq)
+    
+    Error.test <- ErrVec/nTests
+    Error.train <- ErrVec.train/nTrains
+    bootError <- Error.test*0.632 + Error.train*0.368  # bootstrap error
+    ret <- list(ladder=ladder, Error=Error.test, SelFreq=SelFreq, Error_train=Error.train,
+                bootError=bootError, Error.list=Error.list,  Error_train.list=Error_train.list)
+    return(ret)
     
 }
 
 SummaryRSVM <- function( RSVMres )
 {
-    ERInd <- max( which(RSVMres$Error == min(RSVMres$Error)) )
+    ERInd <- min( which(RSVMres$Error == min(RSVMres$Error)) )
     MinLevel <- RSVMres$ladder[ERInd]
     FreqVec <- RSVMres$SelFreq[, ERInd]
     
     SelInd <- which( rank(FreqVec) >= (RSVMres$ladder[1]-MinLevel) )
-
-#    print("MinCV error of", min(RSVMres$Error), "at", MinLevel, "genes" )
     
-    ret <- list( MinER=min(RSVMres$Error), MinLevel=MinLevel, SelInd=SelInd)
+    # bootstrap
+    ERInd.boot <- min( which(RSVMres$bootError == min(RSVMres$bootError)) )
+    MinLevel.boot <- RSVMres$ladder[ERInd.boot]
+    FreqVec.boot <- RSVMres$SelFreq[, ERInd.boot]
+    SelInd.boot <- which( rank(FreqVec.boot) >= (RSVMres$ladder[1]-MinLevel.boot) )
+    
+#    print("MinCV error of", min(RSVMres$Error), "at", MinLevel, "genes" )
+    ret.boot <- list( MinER=min(RSVMres$bootError), MinLevel=MinLevel.boot, SelInd=SelInd.boot)
+    ret <- list( MinER=min(RSVMres$Error), MinLevel=MinLevel, SelInd=SelInd,bootstrapInfo=ret.boot,
+                 RSVMres=RSVMres)
+    return(ret)
 }
 
-
-# setwd("D:/ChAMP_data_DMRs/data_KIRC")
-# data <- read.csv('TrainafterPreProData_6.csv')
-# dataSam <- data[sample(1:nrow(data),250,replace=F),]
-# x <- as.matrix(dataSam[,-c(1,2)])
-# y <- dataSam[,2]
-# y[y==0] <- -1
-# y <- factor(y)
-# 
-# ladder <- CreatLadder( ncol(x), pRatio=0.75, Nmin=5 )
-# 
-# RSVMres <- RSVM(x, y, ladder, 5, CVnum=0 )
-# fSummaryRSVM <- SummaryRSVM( RSVMres )
 

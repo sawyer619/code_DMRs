@@ -11,7 +11,9 @@ fileData <- "F:/ChAMP_data_DMRs/code_DMRs"  # 数据所在文件夹
 start <- Sys.time()
 
 
-source('R_svm.R')
+#source('R_svm.R')
+#source('R_xgboost.R')
+source('R_randomForest.R')
 # source('DMRsData_model_v2.R')
 source('DMRsData_model_v2.R', encoding = 'UTF-8')
 
@@ -38,16 +40,20 @@ rm(preData.dropSmallVar)
 
 
 # 参数：
-underTimes <- 1
+underTimes <- 1  # 欠采样癌症样本方式建模
+overTimes <- 2  # 过采样正常样本方式建模
 CV.int <- "bootstrape"  # R_svm交叉验证，默认：10  "bootstrape"
-CVnum <- 20  # R_svm交叉验证次数，默认：20
+CVnum <- 2  # R_svm交叉验证次数，默认：60
 timesCross <- 1:12  # 重复建模次数
 freqDMRs <- 9  # 选择频次>= freqDMRs 的差异甲基化位点
 CV.varify <- 10
 
 # 欠采样癌症数据，R_svm建模，寻找特征数
 cat("多次重复寻找差异甲基化位点\n")
-times_results_v2 <- lapply(timesCross, OneTimeModelSVM, preData, underTimes, CV.int, CVnum)
+
+#times_results_v2 <- lapply(timesCross, OneTimeModelSVM_underTumor, preData, underTimes, CV.int, CVnum)
+times_results_v2 <- lapply(timesCross, OneTimeModelSVM_overNorm, preData, overTimes, CV.int, CVnum)
+
 save(times_results_v2,file = paste(fileData, 'times_results_v2.Rdata', sep = "/"))
 
 siteWeight <- lapply(times_results_v2,function(x){return(x$siteName)})

@@ -138,21 +138,20 @@ ModelSVM <- function(dd, CV.int=10, CVnum=20){
   
   x <- dd$x
   y <- dd$y
-  if(ncol(x) > 5000){
-    ladder1 <- CreatLadder( ncol(x), pRatio=0.5, Nmin=5000 )
-    ladder2 <- CreatLadder( 5000, pRatio=0.7, Nmin=1000 )
-    ladder3 <- CreatLadder( 1000, pRatio=0.85, Nmin=10 )
-    ladder <- c(ladder1, ladder2, ladder3)
+  if(ncol(x) > 10000){
+    ladder1 <- CreatLadder( ncol(x), pRatio=0.5, Nmin=10000 )
+    ladder2 <- CreatLadder( 10000, pRatio=0.85, Nmin=5 )
+    ladder <- c(ladder1, ladder2)
   }
   
-  if(ncol(x) <= 5000 & ncol(x) > 1000){
+  if(ncol(x) <= 10000 & ncol(x) > 1000){
     ladder1 <- CreatLadder( ncol(x), pRatio=0.7, Nmin=1000 )
-    ladder2 <- CreatLadder( 1000, pRatio=0.85, Nmin=10 )
+    ladder2 <- CreatLadder( 1000, pRatio=0.95, Nmin=5 )
     ladder <- c(ladder1, ladder2)
   }
   
   if(ncol(x) <= 1000){
-    ladder <- CreatLadder( ncol(x), pRatio=0.85, Nmin=10 )
+    ladder <- CreatLadder( ncol(x), pRatio=0.95, Nmin=500 )
   }
   
   
@@ -191,8 +190,8 @@ UndersampledTumor <- function(tumorData, normalData, underTimes){
 }
 
 
-OneTimeModelSVM <- function(x, preData, underTimes, CV.int, CVnum){
-  # 函数说明：一次R_svm训练，寻找差异甲基化位点
+OneTimeModelSVM_underTumor <- function(x, preData, underTimes, CV.int, CVnum){
+  # 函数说明：一次R_svm训练，寻找差异甲基化位点, 采用欠采样癌症样本方式
   #
   # Args：
   # x：第几次重复
@@ -227,6 +226,92 @@ OneTimeModelSVM <- function(x, preData, underTimes, CV.int, CVnum){
   y_test <- as.numeric(as.vector(testData$y))
   #str(y_test)
   #message('testData.y:',y_test)
+  
+  # 评价指标
+  evaluateSystem <- EvaluateSystem(y_test, svmpred)
+  accuracyRate <- sum(svmpred == y_test )/dim(testData$x)[1]  # 正确率
+  
+  time4 <- Sys.time()
+  cat("一次建模时间：",time4-time3, "\n")
+  
+  return(list(siteName=siteName, SummaryRSVM=fSummaryRSVM, evaluate=evaluateSystem, 
+              accuracyRate= accuracyRate))
+  
+}
+
+OversampledNorm <- function(tumorData, normalData, overTimes){
+  # 函数说明：对正常样本过采样后和癌症样本组合成训练样本
+  #
+  # Args：
+  # tumorData：癌症样本
+  # normalData：正常样本
+  # overTimes：过采样正常样本为癌症样本的几分之一
+  #
+  # return：
+  #
+  
+  len.norma <- dim(normalData)[1]
+  len.tumor <- dim(tumorData)[1]
+  
+  SampInd <- seq(1, len.norma)
+  nOver <- floor(len.tumor/overTimes) - len.norma
+  if(nOver > 0){
+    TrainInd <- sample(SampInd, nOver, replace=T )  # 过采样正常样本为癌症样本的一半
+    #TestInd <- SampInd[ which(!(SampInd %in% TrainInd ))]
+    
+    #testData <- normalData[TestInd,]
+    normalData.new <- rbind(normalData, normalData[TrainInd,])
+    normalData <- normalData.new
+    rm(normalData.new)
+    
+  }
+  trainData <- rbind(tumorData, normalData)
+  #return(list(testData=testData, trainData=trainData))
+  return(trainData)
+}
+
+OneTimeModelSVM_overNorm <- function(x, preData, overTimes, CV.int, CVnum){
+  # 函数说明：一次R_svm训练，寻找差异甲基化位点，采用过采样正常样本方式
+  #
+  # Args：
+  # x：第几次重复
+  # preData：训练数据
+  # overTimes：过采样正常样本为癌症样本的几分之一
+  #
+  # return：
+  # list(siteName=siteName, SummaryRSVM=fSummaryRSVM)
+  time3 <- Sys.time()
+  
+  cat("第几次寻找差异甲基化位点：", x,"\n")
+  
+  normalData <- subset(preData, target==-1)
+  tumorData <- subset(preData, target==1)
+  trainData <- OversampledNorm(tumorData, normalData, overTimes)  # 欠采样癌症样本
+  rm(normalData)
+  rm(tumorData)
+  cat("过采样完成:", Sys.time()-time3,"\n")
+  # R_svm建模
+  trainData <- ConvertSVMdata(trainData)
+  fSummaryRSVM <- ModelSVM(trainData, CV.int, CVnum)
+  SelInd <- fSummaryRSVM$SelInd
+  siteName <- colnames(trainData$x)
+  siteName <- siteName[SelInd]
+  cat("建模完成:", Sys.time()-time3,"\n")
+  
+  # 测试集验证
+  testData <- preData
+  rm(preData)
+  testData <- ConvertSVMdata(testData)
+  svmres <- svm(trainData$x[, SelInd], trainData$y, scale=F, type="C-classification",
+                kernel="linear" )
+  svmpred <- predict(svmres, testData$x[, SelInd] )
+  svmpred <- as.numeric(as.vector(svmpred))
+  #str(svmpred)
+  #message('svmpred:',svmpred)
+  y_test <- as.numeric(as.vector(testData$y))
+  #str(y_test)
+  #message('testData.y:',y_test)
+  cat("测试完成:", Sys.time()-time3,"\n")
   
   # 评价指标
   evaluateSystem <- EvaluateSystem(y_test, svmpred)
